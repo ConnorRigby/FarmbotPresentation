@@ -10,9 +10,11 @@ defmodule Presentator.Scene.Home do
 
   @exchange "amq.topic"
   @token System.get_env("FARMBOT_TOKEN")
-  @token || Mix.raise("""
-  You forgot to export a farmbot token in your env
-  """)
+  @token ||
+    Mix.raise("""
+    You forgot to export a farmbot token in your env
+    """)
+
   @username "device_6"
   @vhost "szxossex"
   @host "spirited-crow.rmq.cloudamqp.com"
@@ -383,6 +385,8 @@ defmodule Presentator.Scene.Home do
       )
       |> push_graph()
 
+    send_message(state, "applying firmware update")
+
     {:noreply, %{state | graph: graph}}
   end
 
@@ -405,6 +409,7 @@ defmodule Presentator.Scene.Home do
 
   def handle_info({:ssh_cm, _, {:closed, _}}, state) do
     send(self(), :animation_complete)
+    send_message(state, "Firmware update applied. Going down for reboot")
     {:noreply, %{state | animating: true}}
   end
 
@@ -548,6 +553,7 @@ defmodule Presentator.Scene.Home do
     bot_state = Jason.decode!(payload)
     %{"location_data" => %{"position" => %{"x" => x, "y" => y, "z" => z}}} = bot_state
     %{"pins" => pins} = bot_state
+
     graph =
       state.graph
       |> set_farmbot_xyz(x, y, z)
@@ -702,23 +708,21 @@ defmodule Presentator.Scene.Home do
     y_base = @left_rect_y_pos + @left_rect_y_pos / 2 - button_height / 2 + 100
 
     graph
-    |> button("E-LOCK", [
+    |> button("E-LOCK",
       id: :button_elock,
       width: @left_rect_length - 50,
       height: 50,
       theme: :danger,
       radius: 20,
       translate: {@left_rect_x_pos + 25, @left_rect_y_pos + 25}
-    ]
     )
-    |> button("E-UNLOCK ", [
+    |> button("E-UNLOCK ",
       id: :button_eunlock,
       width: @left_rect_length - 50,
       height: 50,
       theme: :warning,
       radius: 20,
       translate: {@left_rect_x_pos + 25, @left_rect_y_pos + 80}
-    ]
     )
     |> button("UP",
       id: :button_UP,
@@ -769,66 +773,66 @@ defmodule Presentator.Scene.Home do
       theme: :info,
       translate: {x_base + 55 + 55, y_base + 55 * 2}
     )
-    |> text("Test LED", [
+    |> text("Test LED",
       font_blur: 2.0,
       fill: {0, 0, 0},
       text_align: :left,
       translate: {x_base - 86, y_base + 158}
-    ])
-    |> text("Test LED", [
+    )
+    |> text("Test LED",
       text_align: :left,
       translate: {x_base - 85, y_base + 157}
-    ])
-    |> toggle(false, [
-      translate: {x_base, y_base + 150}, 
+    )
+    |> toggle(false,
+      translate: {x_base, y_base + 150},
       theme: :info,
       id: {:toggle_pin, 13}
-    ])
-    |> text("Lighting", [
+    )
+    |> text("Lighting",
       font_blur: 2.0,
       fill: {0, 0, 0},
       text_align: :left,
       translate: {x_base - 86, y_base + 188}
-    ])
-    |> text("Lighting", [
+    )
+    |> text("Lighting",
       text_align: :left,
       translate: {x_base - 85, y_base + 187}
-    ])
-    |> toggle(false, [
-      translate: {x_base, y_base + 180}, 
+    )
+    |> toggle(false,
+      translate: {x_base, y_base + 180},
       theme: :info,
       id: {:toggle_pin, 7}
-    ])
-    |> text("Water", [
+    )
+    |> text("Water",
       font_blur: 2.0,
       fill: {0, 0, 0},
       text_align: :left,
       translate: {x_base - 86, y_base + 218}
-    ])
-    |> text("Water", [
+    )
+    |> text("Water",
       text_align: :left,
       translate: {x_base - 85, y_base + 217}
-    ])
-    |> toggle(false, [
-      translate: {x_base, y_base + 210}, 
+    )
+    |> toggle(false,
+      translate: {x_base, y_base + 210},
       theme: :info,
       id: {:toggle_pin, 8}
-    ])
-    |> text("Vacuum", [
+    )
+    |> text("Vacuum",
       font_blur: 2.0,
       fill: {0, 0, 0},
       text_align: :left,
       translate: {x_base - 86, y_base + 248}
-    ])
-    |> text("Vacuum", [
+    )
+    |> text("Vacuum",
       text_align: :left,
       translate: {x_base - 85, y_base + 247}
-    ])
-    |> toggle(false, [
-      translate: {x_base, y_base + 240}, 
+    )
+    |> toggle(false,
+      translate: {x_base, y_base + 240},
       theme: :info,
       id: {:toggle_pin, 9}
-    ])
+    )
     |> push_graph()
   end
 
@@ -837,10 +841,13 @@ defmodule Presentator.Scene.Home do
       {pin_number, %{"value" => 0}}, graph ->
         IO.inspect(pin_number, label: "PIN_NUMBER(off)")
         Graph.modify(graph, {:toggle_pin, String.to_integer(pin_number)}, &toggle(&1, false))
+
       {pin_number, %{"value" => 1}}, graph ->
         IO.inspect(pin_number, label: "PIN_NUMBER(on)")
         Graph.modify(graph, {:toggle_pin, String.to_integer(pin_number)}, &toggle(&1, true))
-      _, graph -> graph
+
+      _, graph ->
+        graph
     end)
     |> push_graph()
   end
@@ -996,7 +1003,7 @@ defmodule Presentator.Scene.Home do
     }
 
     json = Jason.encode!(payload)
-    AMQP.Basic.publish(state.chan, @exchange, "bot.device_6.from_clients", json)    
+    AMQP.Basic.publish(state.chan, @exchange, "bot.device_6.from_clients", json)
   end
 
   def emergency_unlock(state) do
@@ -1017,7 +1024,7 @@ defmodule Presentator.Scene.Home do
     }
 
     json = Jason.encode!(payload)
-    AMQP.Basic.publish(state.chan, @exchange, "bot.device_6.from_clients", json)    
+    AMQP.Basic.publish(state.chan, @exchange, "bot.device_6.from_clients", json)
   end
 
   defp open_amqp_connection() do
